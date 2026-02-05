@@ -94,6 +94,17 @@ Set environment variables (prefix `EMBED_`):
 | `QDRANT_API_KEY` | - | Qdrant API key |
 | `COLLECTION_NAME` | houthandel_products | Qdrant collection name |
 
+## Docker
+
+```bash
+# Build and run
+docker compose up -d
+
+# Or build manually
+docker build -t product-embedding-api .
+docker run -p 8000:8000 --env-file .env product-embedding-api
+```
+
 ## Embedding Model
 
 Uses **BAAI/bge-m3** locally via sentence-transformers:
