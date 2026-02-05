@@ -4,6 +4,9 @@ FastAPI application for product embedding and semantic search.
 
 import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file
 from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException, Query
