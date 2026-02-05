@@ -1,10 +1,39 @@
+# Python
 venv/
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
 .git/
 .gitignore
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Docs
 *.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Scripts & misc
 scripts/
 nul
+*.log
+
+# Tests
+tests/
+test_*.py
+*_test.py

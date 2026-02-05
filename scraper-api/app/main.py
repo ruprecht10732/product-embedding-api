@@ -61,6 +61,18 @@ class EmbedResponse(BaseModel):
     message: str
 
 
+class EmbedTextRequest(BaseModel):
+    """Request to embed text."""
+    text: str = Field(..., min_length=1, description="Text to embed")
+
+
+class EmbedTextResponse(BaseModel):
+    """Response with embedding vector."""
+    text: str
+    vector: List[float]
+    dimensions: int
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage embedder lifecycle."""
@@ -181,6 +193,26 @@ async def embed_products(request: EmbedRequest) -> EmbedResponse:
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/embed-text", response_model=EmbedTextResponse)
+async def embed_text(request: EmbedTextRequest) -> EmbedTextResponse:
+    """
+    Get embedding vector for a text query.
+    
+    Use this to get the vector, then query Qdrant directly with your own SDK.
+    Returns a 1024-dimensional vector from BGE-M3.
+    """
+    if not _embedder:
+        raise HTTPException(status_code=503, detail="Embedder not initialized. Check QDRANT_API_KEY.")
+    
+    vector = _embedder.model.encode(request.text).tolist()
+    
+    return EmbedTextResponse(
+        text=request.text,
+        vector=vector,
+        dimensions=len(vector)
+    )
 
 
 if __name__ == "__main__":
