@@ -4,9 +4,9 @@ services:
       context: .
       target: production
     image: product-embedding-api:latest
-    container_name: product-embedding-api
-    ports:
-      - "${PORT:-8000}:8000"
+    # NOTE: Do not set container_name - Coolify manages this
+    networks:
+      - coolify
     env_file:
       - .env
     volumes:
@@ -29,3 +29,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.embedding-api.loadbalancer.server.port=8000
+
+networks:
+  coolify:
+    external: true
