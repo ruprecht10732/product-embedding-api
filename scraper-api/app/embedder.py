@@ -32,29 +32,30 @@ class ProductEmbedder:
         self.model = SentenceTransformer("BAAI/bge-m3")
         print("Initialized ProductEmbedder with local BAAI/bge-m3 model")
         
-    def setup_collection(self, vector_size: int = 1024):
+    def setup_collection(self, vector_size: int = 1024, collection_name: str = None):
         """Create collection if it doesn't exist. BAAI/bge-m3 uses 1024 dimensions."""
-        if self.client.collection_exists(self.collection_name):
+        collection = collection_name or self.collection_name
+        if self.client.collection_exists(collection):
             # Check dimension compatibility
             try:
-                info = self.client.get_collection(self.collection_name)
+                info = self.client.get_collection(collection)
                 current_size = info.config.params.vectors.size
                 if current_size != vector_size:
-                     print(f"Collection '{self.collection_name}' exists but has vector size {current_size} (expected {vector_size}).")
+                     print(f"Collection '{collection}' exists but has vector size {current_size} (expected {vector_size}).")
                      print("Recreating collection...")
-                     self.client.delete_collection(self.collection_name)
+                     self.client.delete_collection(collection)
                      self.client.create_collection(
-                        collection_name=self.collection_name,
+                        collection_name=collection,
                         vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
                      )
                 else:
-                    print(f"Collection '{self.collection_name}' already exists with correct size.")
+                    print(f"Collection '{collection}' already exists with correct size.")
             except Exception as e:
                 print(f"Warning checking collection: {e}")
         else:
-            print(f"Creating collection '{self.collection_name}' with size {vector_size}...")
+            print(f"Creating collection '{collection}' with size {vector_size}...")
             self.client.create_collection(
-                collection_name=self.collection_name,
+                collection_name=collection,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
 
@@ -148,14 +149,15 @@ class ProductEmbedder:
             
         print("Done!")
 
-    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search(self, query: str, limit: int = 5, collection_name: str = None) -> List[Dict[str, Any]]:
         """Search products semantically using local BGE-M3 model."""
+        collection = collection_name or self.collection_name
         try:
             # Get query embedding using local model
             query_vector = self.model.encode(query).tolist()
 
             results = self.client.query_points(
-                collection_name=self.collection_name,
+                collection_name=collection,
                 query=query_vector,
                 limit=limit
             ).points

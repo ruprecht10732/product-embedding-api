@@ -28,6 +28,7 @@ class SearchRequest(BaseModel):
     """Search request model."""
     query: str = Field(..., min_length=1, description="Search query text")
     limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    collection: Optional[str] = Field(default=None, description="Collection name (uses default if not set)")
 
 
 class SearchResult(BaseModel):
@@ -83,6 +84,10 @@ class AddDocumentsRequest(BaseModel):
     id_field: Optional[str] = Field(
         default=None,
         description="Field to use as document ID (auto-generated if not set)"
+    )
+    collection: Optional[str] = Field(
+        default=None,
+        description="Collection name (uses default if not set)"
     )
 
 
@@ -149,7 +154,8 @@ async def search_products(request: SearchRequest) -> SearchResponse:
     if not _embedder:
         raise HTTPException(status_code=503, detail="Embedder not initialized. Check QDRANT_API_KEY.")
     
-    results = _embedder.search(request.query, request.limit)
+    collection = request.collection or COLLECTION_NAME
+    results = _embedder.search(request.query, request.limit, collection_name=collection)
     
     search_results = []
     for r in results:
@@ -174,12 +180,13 @@ async def search_products(request: SearchRequest) -> SearchResponse:
 @app.get("/api/search")
 async def search_products_get(
     q: str = Query(..., min_length=1, description="Search query"),
-    limit: int = Query(default=10, ge=1, le=100, description="Max results")
+    limit: int = Query(default=10, ge=1, le=100, description="Max results"),
+    collection: Optional[str] = Query(default=None, description="Collection name")
 ) -> SearchResponse:
     """
     Semantic search for products (GET endpoint).
     """
-    request = SearchRequest(query=q, limit=limit)
+    request = SearchRequest(query=q, limit=limit, collection=collection)
     return await search_products(request)
 
 
@@ -271,9 +278,6 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
         import uuid
         from qdrant_client.models import PointStruct
         
-        # Ensure collection exists
-        _embedder.setup_collection()
-        
         # Build embedding texts and IDs
         texts = []
         ids = []
@@ -314,8 +318,10 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
             ))
         
         # Upsert to Qdrant
+        collection = request.collection or COLLECTION_NAME
+        _embedder.setup_collection(collection_name=collection)
         _embedder.client.upsert(
-            collection_name=_embedder.collection_name,
+            collection_name=collection,
             points=points
         )
         
