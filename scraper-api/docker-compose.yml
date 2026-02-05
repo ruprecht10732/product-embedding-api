@@ -5,8 +5,8 @@ services:
       target: production
     image: product-embedding-api:latest
     container_name: product-embedding-api
-    expose:
-      - "8000"
+    ports:
+      - "${PORT:-8000}:8000"
     env_file:
       - .env
     volumes:
