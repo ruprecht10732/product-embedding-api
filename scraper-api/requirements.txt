@@ -1,0 +1,10 @@
+# FastAPI
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Embedding & Vector DB
+sentence-transformers
+qdrant-client
+torch

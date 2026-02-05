@@ -1,0 +1,167 @@
+import json
+import glob
+import os
+import uuid
+import time
+from typing import List, Dict, Any
+from tqdm import tqdm
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+from sentence_transformers import SentenceTransformer
+
+from app.models import Product
+
+class ProductEmbedder:
+    def __init__(self, qdrant_url: str, qdrant_api_key: str, collection_name: str = "houthandel_products"):
+        # For Qdrant Cloud, extract host and use grpc or REST API
+        if "cloud.qdrant.io" in qdrant_url:
+            # Extract host from URL - Qdrant Cloud uses HTTPS on port 443
+            host = qdrant_url.replace("https://", "").replace("http://", "").split(":")[0].rstrip("/")
+            self.client = QdrantClient(
+                url=f"https://{host}",
+                api_key=qdrant_api_key,
+            )
+        else:
+            self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        
+        self.collection_name = collection_name
+        
+        # Use local BAAI/bge-m3 model via sentence-transformers (supports Dutch)
+        print("Loading BAAI/bge-m3 model locally (this may take a moment on first run)...")
+        self.model = SentenceTransformer("BAAI/bge-m3")
+        print("Initialized ProductEmbedder with local BAAI/bge-m3 model")
+        
+    def setup_collection(self, vector_size: int = 1024):
+        """Create collection if it doesn't exist. BAAI/bge-m3 uses 1024 dimensions."""
+        if self.client.collection_exists(self.collection_name):
+            # Check dimension compatibility
+            try:
+                info = self.client.get_collection(self.collection_name)
+                current_size = info.config.params.vectors.size
+                if current_size != vector_size:
+                     print(f"Collection '{self.collection_name}' exists but has vector size {current_size} (expected {vector_size}).")
+                     print("Recreating collection...")
+                     self.client.delete_collection(self.collection_name)
+                     self.client.create_collection(
+                        collection_name=self.collection_name,
+                        vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                     )
+                else:
+                    print(f"Collection '{self.collection_name}' already exists with correct size.")
+            except Exception as e:
+                print(f"Warning checking collection: {e}")
+        else:
+            print(f"Creating collection '{self.collection_name}' with size {vector_size}...")
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            )
+
+    def load_products_from_dir(self, directory: str) -> List[Product]:
+        """Load all products from JSON files in directory."""
+        products = []
+        files = glob.glob(os.path.join(directory, "*.json"))
+        print(f"Found {len(files)} JSON files in {directory}")
+        
+        for f in files:
+            try:
+                with open(f, "r", encoding="utf-8") as f_in:
+                    data = json.load(f_in)
+                    # Data is a list of product dicts
+                    for item in data:
+                        # Ensure basic validation without breaking on minor errors
+                        if "url" in item and not "source_url" in item:
+                            item["source_url"] = item["url"]
+                        try:
+                            # If scrape_success is missing, default to True
+                            if "scrape_success" not in item:
+                                item["scrape_success"] = True
+                            
+                            p = Product(**item)
+                            # Only include successful scrapes
+                            if p.scrape_success and p.name and p.price is not None:
+                                products.append(p)
+                        except Exception as e:
+                            # print(f"Skipping invalid product in {f}: {e}")
+                            pass
+            except Exception as e:
+                print(f"Error reading {f}: {e}")
+                
+        print(f"Loaded {len(products)} valid products total.")
+        return products
+
+    def embed_and_upsert(self, products: List[Product], batch_size: int = 50):
+        """Generate embeddings and upsert to Qdrant."""
+        if not products:
+            print("No products to process.")
+            return
+
+        # Prepare texts
+        print("Preparing texts...")
+        texts = []
+        for p in products:
+            if not p.embedding_text:
+                p.compute_embedding_text()
+            texts.append(p.embedding_text)
+
+        # Process in batches
+        total_batches = (len(texts) + batch_size - 1) // batch_size
+        print(f"Processing {len(texts)} products in {total_batches} batches...")
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            batch_products = products[i:i + batch_size]
+            
+            try:
+                # Use local BGE-M3 model for embedding via sentence-transformers
+                vectors = self.model.encode(batch_texts, show_progress_bar=False)
+                vectors_list = vectors.tolist()
+
+                points = []
+                for j, (product, vector) in enumerate(zip(batch_products, vectors_list)):
+                    payload = product.model_dump(mode="json")
+                    
+                    try:
+                        point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, product.source_url))
+                        payload["id"] = point_id
+                    except Exception:
+                        point_id = str(uuid.uuid4())
+
+                    points.append(PointStruct(
+                        id=point_id, 
+                        vector=vector,
+                        payload=payload
+                    ))
+                
+                if points:
+                    self.client.upsert(
+                        collection_name=self.collection_name,
+                        points=points
+                    )
+                
+                print(f"Upserted batch {i//batch_size + 1}/{total_batches}")
+                
+            except Exception as e:
+                print(f"Error processing batch {i} (skipping): {e}")
+                time.sleep(2) # Backoff slightly on error
+            
+        print("Done!")
+
+    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Search products semantically using local BGE-M3 model."""
+        try:
+            # Get query embedding using local model
+            query_vector = self.model.encode(query).tolist()
+
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                limit=limit
+            ).points
+            
+            return [hit.payload for hit in results]
+        except Exception as e:
+            print(f"Search failed: {e}")
+            return []
+
