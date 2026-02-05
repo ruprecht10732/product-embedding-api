@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()  # Load .env file
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -71,6 +71,27 @@ class EmbedTextResponse(BaseModel):
     text: str
     vector: List[float]
     dimensions: int
+
+
+class AddDocumentsRequest(BaseModel):
+    """Request to add documents to Qdrant with embeddings."""
+    documents: List[Dict[str, Any]] = Field(..., description="List of documents to embed and store")
+    text_fields: List[str] = Field(
+        default=["name", "title", "description", "content", "text"],
+        description="Fields to concatenate for embedding text"
+    )
+    id_field: Optional[str] = Field(
+        default=None,
+        description="Field to use as document ID (auto-generated if not set)"
+    )
+
+
+class AddDocumentsResponse(BaseModel):
+    """Response from adding documents."""
+    success: bool
+    documents_added: int
+    ids: List[str]
+    message: str
 
 
 @asynccontextmanager
@@ -213,6 +234,100 @@ async def embed_text(request: EmbedTextRequest) -> EmbedTextResponse:
         vector=vector,
         dimensions=len(vector)
     )
+
+
+@app.post("/api/documents", response_model=AddDocumentsResponse)
+async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
+    """
+    Add flexible documents to Qdrant with embeddings.
+    
+    Send any JSON documents - they will be embedded using specified text_fields
+    and stored in Qdrant. All fields are preserved in the payload.
+    
+    Example:
+    ```json
+    {
+        "documents": [
+            {"name": "Product X", "description": "A great product", "price": 99.99, "custom_field": "anything"},
+            {"title": "Article Y", "content": "Full text here...", "author": "John"}
+        ],
+        "text_fields": ["name", "title", "description", "content"],
+        "id_field": "sku"
+    }
+    ```
+    """
+    if not _embedder:
+        raise HTTPException(status_code=503, detail="Embedder not initialized. Check QDRANT_API_KEY.")
+    
+    if not request.documents:
+        return AddDocumentsResponse(
+            success=False,
+            documents_added=0,
+            ids=[],
+            message="No documents provided"
+        )
+    
+    try:
+        import uuid
+        from qdrant_client.models import PointStruct
+        
+        # Ensure collection exists
+        _embedder.setup_collection()
+        
+        # Build embedding texts and IDs
+        texts = []
+        ids = []
+        
+        for doc in request.documents:
+            # Build embedding text from specified fields
+            text_parts = []
+            for field in request.text_fields:
+                if field in doc and doc[field]:
+                    text_parts.append(str(doc[field]))
+            
+            embedding_text = " ".join(text_parts) if text_parts else str(doc)
+            texts.append(embedding_text)
+            
+            # Get or generate ID
+            if request.id_field and request.id_field in doc:
+                doc_id = str(doc[request.id_field])
+            elif "id" in doc:
+                doc_id = str(doc["id"])
+            else:
+                # Generate UUID from content hash for deduplication
+                doc_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, embedding_text[:500]))
+            
+            ids.append(doc_id)
+        
+        # Generate embeddings
+        vectors = _embedder.model.encode(texts, show_progress_bar=False).tolist()
+        
+        # Create points
+        points = []
+        for doc_id, vector, doc, text in zip(ids, vectors, request.documents, texts):
+            payload = dict(doc)
+            payload["_embedding_text"] = text  # Store what was embedded
+            points.append(PointStruct(
+                id=doc_id,
+                vector=vector,
+                payload=payload
+            ))
+        
+        # Upsert to Qdrant
+        _embedder.client.upsert(
+            collection_name=_embedder.collection_name,
+            points=points
+        )
+        
+        return AddDocumentsResponse(
+            success=True,
+            documents_added=len(points),
+            ids=ids,
+            message=f"Successfully added {len(points)} documents"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
