@@ -7,6 +7,9 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
+# Set PATH to suppress pip warnings
+ENV PATH=/root/.local/bin:$PATH
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -14,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --user --no-warn-script-location -r requirements.txt
 
 # Pre-download the BGE-M3 model to cache it in the image
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
