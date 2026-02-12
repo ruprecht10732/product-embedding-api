@@ -3,7 +3,7 @@ import glob
 import os
 import uuid
 import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from tqdm import tqdm
 
 from qdrant_client import QdrantClient
@@ -59,6 +59,39 @@ class ProductEmbedder:
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
 
+    def parse_products(self, data: Any) -> Tuple[List[Product], int]:
+        """Parse a JSON array into validated Product objects.
+
+        Returns a tuple of (valid_products, skipped_count).
+        """
+        if not isinstance(data, list):
+            return [], 0
+
+        products: List[Product] = []
+        skipped = 0
+
+        for item in data:
+            if not isinstance(item, dict):
+                skipped += 1
+                continue
+
+            if "url" in item and "source_url" not in item:
+                item["source_url"] = item["url"]
+
+            try:
+                if "scrape_success" not in item:
+                    item["scrape_success"] = True
+
+                p = Product(**item)
+                if p.scrape_success and p.name and p.price is not None:
+                    products.append(p)
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+
+        return products, skipped
+
     def load_products_from_dir(self, directory: str) -> List[Product]:
         """Load all products from JSON files in directory."""
         products = []
@@ -69,34 +102,21 @@ class ProductEmbedder:
             try:
                 with open(f, "r", encoding="utf-8") as f_in:
                     data = json.load(f_in)
-                    # Data is a list of product dicts
-                    for item in data:
-                        # Ensure basic validation without breaking on minor errors
-                        if "url" in item and not "source_url" in item:
-                            item["source_url"] = item["url"]
-                        try:
-                            # If scrape_success is missing, default to True
-                            if "scrape_success" not in item:
-                                item["scrape_success"] = True
-                            
-                            p = Product(**item)
-                            # Only include successful scrapes
-                            if p.scrape_success and p.name and p.price is not None:
-                                products.append(p)
-                        except Exception as e:
-                            # print(f"Skipping invalid product in {f}: {e}")
-                            pass
+                    parsed_products, _ = self.parse_products(data)
+                    products.extend(parsed_products)
             except Exception as e:
                 print(f"Error reading {f}: {e}")
                 
         print(f"Loaded {len(products)} valid products total.")
         return products
 
-    def embed_and_upsert(self, products: List[Product], batch_size: int = 50):
+    def embed_and_upsert(self, products: List[Product], batch_size: int = 50, collection_name: str = None):
         """Generate embeddings and upsert to Qdrant."""
         if not products:
             print("No products to process.")
             return
+
+        collection = collection_name or self.collection_name
 
         # Prepare texts
         print("Preparing texts...")
@@ -137,7 +157,7 @@ class ProductEmbedder:
                 
                 if points:
                     self.client.upsert(
-                        collection_name=self.collection_name,
+                        collection_name=collection,
                         points=points
                     )
                 

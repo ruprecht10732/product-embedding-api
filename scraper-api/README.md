@@ -60,6 +60,44 @@ curl -X POST http://localhost:8000/api/embed \
   -d '{"input_dir": "output"}'
 ```
 
+**Upload multiple JSON files and embed to `houthandel_products`:**
+```bash
+curl -X POST "http://localhost:8000/api/embed-files?collection=bouwmaat_products" \
+  -H "accept: application/json" \
+  -F "files=@output/douglas_products.json;type=application/json" \
+  -F "files=@output/vuren_products.json;type=application/json"
+```
+
+The endpoint:
+- accepts multipart file uploads (`files` field)
+- expects each file to contain a JSON array of products
+- skips invalid records and returns counts + per-file errors
+- uploads to the `collection` query parameter (or defaults to `houthandel_products`)
+
+**Stream a very large JSON file (constant-memory ingestion):**
+```bash
+curl -X POST "http://localhost:8000/api/documents-stream?batch_size=200" \
+  -H "accept: application/json" \
+  -F "file=@output/bouwmaat_big.json;type=application/json" \
+  -F "collection=bouwmaat_products" \
+  -F "id_field=sku_id" \
+  -F "embedding_field=embedding_text"
+```
+
+Use `/api/documents-stream` for very large JSON arrays to avoid loading all
+documents into memory at once. The endpoint parses incrementally and upserts
+to Qdrant in batches.
+
+For Bouwmaat-style records, the endpoint now:
+- embeds `embedding_text` first (fallbacks to common text fields)
+- uses `sku_id` as ID when available
+- stores a useful payload subset by default (`product_name`, prices, sku, stock, image/url, ean, description, omschrijving, specificaties, etc.)
+
+You can override payload fields explicitly:
+```bash
+-F 'payload_fields=["product_name","sku_id","product_url","price_excl","specificaties"]'
+```
+
 ## Product Data Format
 
 Products are stored with the following structure:
