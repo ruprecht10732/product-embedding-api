@@ -3,6 +3,7 @@ fastapi
 uvicorn[standard]
 gunicorn
 python-dotenv
+python-multipart
 pydantic
 pydantic-settings
 
@@ -10,3 +11,4 @@ pydantic-settings
 sentence-transformers
 qdrant-client
 torch
+ijson
