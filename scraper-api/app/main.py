@@ -449,6 +449,7 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
 
 
 @app.post("/api/documents-stream", response_model=StreamDocumentsResponse)
+@app.post("/api/doc-stream", response_model=StreamDocumentsResponse)
 async def add_documents_stream(
     file: UploadFile = File(...),
     embedding_field: str = Form(default="embedding_text", description="Field to embed first if present"),
