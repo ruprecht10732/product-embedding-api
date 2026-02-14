@@ -88,6 +88,9 @@ Use `/api/documents-stream` for very large JSON arrays to avoid loading all
 documents into memory at once. The endpoint parses incrementally and upserts
 to Qdrant in batches.
 
+If your edge/proxy setup has route issues with this path, use the alias:
+- `/api/doc-stream`
+
 For Bouwmaat-style records, the endpoint now:
 - embeds `embedding_text` first (fallbacks to common text fields)
 - uses `sku_id` as ID when available
