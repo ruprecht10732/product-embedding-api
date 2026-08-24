@@ -20,8 +20,8 @@ from app.embedder import ProductEmbedder
 QDRANT_URL = os.environ.get(
     "QDRANT_URL",
     os.environ.get(
-        "SERVICE_URL_QDRANT_6333",
-        os.environ.get("SERVICE_URL_QDRANT", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333")
+        "SERVICE_URL_QDRANT",
+        os.environ.get("SERVICE_URL_QDRANT_6333", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io")
     )
 )
 QDRANT_API_KEY = os.environ.get(

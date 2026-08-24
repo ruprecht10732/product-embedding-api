@@ -32,7 +32,7 @@ def main():
     )
     embed_parser.add_argument(
         "--url",
-        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333"),
+        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io"),
         help="Qdrant URL"
     )
     embed_parser.add_argument(
@@ -54,7 +54,7 @@ def main():
     )
     search_parser.add_argument(
         "--url",
-        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333"),
+        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io"),
         help="Qdrant URL"
     )
     search_parser.add_argument(
