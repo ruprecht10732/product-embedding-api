@@ -3,6 +3,7 @@ import glob
 import os
 import uuid
 import time
+from urllib.parse import urlparse
 from typing import List, Dict, Any, Tuple
 from tqdm import tqdm
 
@@ -21,9 +22,21 @@ class ProductEmbedder:
             self.client = QdrantClient(
                 url=f"https://{host}",
                 api_key=qdrant_api_key,
+                prefer_grpc=False,
+                timeout=60
             )
         else:
-            self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+            u = urlparse(qdrant_url if "://" in qdrant_url else f"http://{qdrant_url}")
+            port = u.port or (443 if u.scheme == "https" else 80)
+            https = u.scheme == "https"
+            self.client = QdrantClient(
+                host=u.hostname,
+                port=port,
+                https=https,
+                api_key=qdrant_api_key or None,
+                prefer_grpc=False,
+                timeout=60
+            )
         
         self.collection_name = collection_name
         

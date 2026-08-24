@@ -147,18 +147,18 @@ async def lifespan(app: FastAPI):
                 qdrant_api_key=QDRANT_API_KEY,
                 collection_name=COLLECTION_NAME
             )
-            print(f"✓ Connected to Qdrant at {QDRANT_URL}")
+            print(f"[OK] Connected to Qdrant at {QDRANT_URL}")
         except Exception as e:
-            print(f"⚠ Failed to connect to Qdrant: {e}")
+            print(f"[WARN] Failed to connect to Qdrant: {e}")
             _embedder = None
     else:
-        print("⚠ QDRANT_API_KEY not set - embedder not initialized")
+        print("[WARN] QDRANT_API_KEY not set - embedder not initialized")
         _embedder = None
     
     yield
     
     _embedder = None
-    print("✓ Embedder shut down")
+    print("[OK] Embedder shut down")
 
 
 app = FastAPI(

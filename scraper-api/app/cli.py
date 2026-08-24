@@ -6,8 +6,12 @@ Usage:
     python -m app.cli search "search query" --url <qdrant-url> --key <api-key>
 """
 
+import os
 import argparse
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 try:
     from app.embedder import ProductEmbedder
