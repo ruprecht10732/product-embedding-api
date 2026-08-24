@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # Qdrant settings
-    qdrant_url: str = "https://qdrant-m4804ssokwsggcgkgws0wcoc.salestainable.nl:443"
-    qdrant_api_key: str = ""
+    qdrant_url: str = "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333"
+    qdrant_api_key: str = "Il14wLQHJJM5SncYCJzReR26VtxfyvPn"
     collection_name: str = "houthandel_products"
     
     # Embedding

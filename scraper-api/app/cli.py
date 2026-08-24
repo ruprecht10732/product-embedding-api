@@ -32,17 +32,17 @@ def main():
     )
     embed_parser.add_argument(
         "--url",
-        default="https://qdrant-m4804ssokwsggcgkgws0wcoc.salestainable.nl:443",
+        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333"),
         help="Qdrant URL"
     )
     embed_parser.add_argument(
         "--key",
-        default=None,
+        default=os.environ.get("QDRANT_API_KEY", "Il14wLQHJJM5SncYCJzReR26VtxfyvPn"),
         help="Qdrant API Key"
     )
     embed_parser.add_argument(
         "--collection",
-        default="houthandel_products",
+        default=os.environ.get("COLLECTION_NAME", "houthandel_products"),
         help="Qdrant collection name"
     )
 
@@ -54,12 +54,12 @@ def main():
     )
     search_parser.add_argument(
         "--url",
-        default="https://qdrant-m4804ssokwsggcgkgws0wcoc.salestainable.nl:443",
+        default=os.environ.get("QDRANT_URL", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333"),
         help="Qdrant URL"
     )
     search_parser.add_argument(
         "--key",
-        default=None,
+        default=os.environ.get("QDRANT_API_KEY", "Il14wLQHJJM5SncYCJzReR26VtxfyvPn"),
         help="Qdrant API Key"
     )
     search_parser.add_argument(

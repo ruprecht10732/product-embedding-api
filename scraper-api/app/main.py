@@ -17,8 +17,20 @@ from app.embedder import ProductEmbedder
 
 
 # Configuration from environment or defaults
-QDRANT_URL = os.environ.get("QDRANT_URL", "https://qdrant-m4804ssokwsggcgkgws0wcoc.salestainable.nl:443")
-QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
+QDRANT_URL = os.environ.get(
+    "QDRANT_URL",
+    os.environ.get(
+        "SERVICE_URL_QDRANT_6333",
+        os.environ.get("SERVICE_URL_QDRANT", "http://qdrant-4shqdxl2cwx2ppiygxnzbbcl.57.131.144.251.sslip.io:6333")
+    )
+)
+QDRANT_API_KEY = os.environ.get(
+    "QDRANT_API_KEY",
+    os.environ.get(
+        "SERVICE_PASSWORD_QDRANTAPIKEY",
+        os.environ.get("QDRANT__SERVICE__API_KEY", "Il14wLQHJJM5SncYCJzReR26VtxfyvPn")
+    )
+)
 COLLECTION_NAME = os.environ.get("COLLECTION_NAME", "houthandel_products")
 
 # Global embedder instance
